@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section class="placeholder-page">
+
+    <span class="milestone-label">COMING IN MILESTONE 2</span>
+
+    <h1>{{ title }}</h1>
+
+    <p>
+        This module will be implemented in the next milestone.
+    </p>
+
+    <div class="placeholder-card">
+        <h3>Planned Features</h3>
+
+        {% if title == "Risk Assessment" %}
+            <ul>
+                <li>Risk scoring engine</li>
+                <li>Risk categories</li>
+                <li>Risk level visualization</li>
+            </ul>
+        {% else %}
+            <ul>
+                <li>AI-based recommendations</li>
+                <li>Project improvement suggestions</li>
+                <li>Strategic insights</li>
+            </ul>
+        {% endif %}
+    </div>
+
+    <a class="primary-button" href="{{ url_for('dashboard') }}">
+        ← Back to Dashboard
+    </a>
+
+</section>
+
+{% endblock %}

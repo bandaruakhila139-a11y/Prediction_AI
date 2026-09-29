@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prediction Ai</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+    <div class="app-shell">
+
+        <header class="top-header">
+            <div>
+                <div class="brand-title">Prediction Ai</div>
+                <div class="brand-subtitle">
+                    Data Collection &amp; Market Intelligence
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <span class="header-dot"></span>
+                <span class="header-text">Milestone 1</span>
+            </div>
+        </header>
+
+        <nav class="navigation">
+            <a href="{{ url_for('project') }}" class="{% if request.endpoint == 'project' %}active{% endif %}">
+                Project Input
+            </a>
+
+            <a href="{{ url_for('risk') }}" class="{% if request.endpoint == 'risk' %}active{% endif %}">
+                Risk Assessment
+            </a>
+
+            <a href="{{ url_for('recommendations') }}"
+                class="{% if request.endpoint == 'recommendations' %}active{% endif %}">
+                Recommendations
+            </a>
+
+            <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+                Dashboard
+            </a>
+        </nav>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-area">
+            {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+
+</html>

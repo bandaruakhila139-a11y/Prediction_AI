@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section class="page-heading">
+    <div>
+        <span class="milestone-label">MILESTONE 1 • WEEKS 1–2</span>
+        <h1>Data Collection &amp; Market Intelligence</h1>
+        <p>Gather project data and analyze the market landscape.</p>
+    </div>
+
+    <a class="primary-button" href="{{ url_for('project') }}">
+        + New Project
+    </a>
+</section>
+
+<script id="chart-years" type="application/json">
+{{ summary.years | tojson }}
+</script>
+
+<script id="chart-values" type="application/json">
+{{ summary.market_values | tojson }}
+</script>
+
+<section class="dashboard-grid">
+
+    <aside class="panel project-panel">
+
+        <div class="panel-heading">
+            <div>
+                <h2>Project Submission</h2>
+                <p>Latest submitted project</p>
+            </div>
+            <span class="plus-icon">+</span>
+        </div>
+
+        {% if latest_project %}
+
+            <div class="project-details">
+
+                <div class="field-display">
+                    <span>Startup / Project Name</span>
+                    <strong>{{ latest_project[0] }}</strong>
+                </div>
+
+                <div class="field-display">
+                    <span>Industry / Sector</span>
+                    <strong>{{ latest_project[1] }}</strong>
+                </div>
+
+                <div class="field-display">
+                    <span>Business Model</span>
+                    <strong>{{ latest_project[2] }}</strong>
+                </div>
+
+                <div class="two-fields">
+                    <div class="field-display">
+                        <span>Target Market</span>
+                        <strong>{{ latest_project[3] or "—" }}</strong>
+                    </div>
+
+                    <div class="field-display">
+                        <span>Budget (USD)</span>
+                        <strong>
+                            {% if latest_project[4] %}
+                                ${{ "{:,.0f}".format(latest_project[4]|float) }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </strong>
+                    </div>
+                </div>
+
+                <div class="field-display description">
+                    <span>Project Description</span>
+                    <strong>
+                        {{ latest_project[5] or "No description provided." }}
+                    </strong>
+                </div>
+
+            </div>
+
+        {% else %}
+
+            <div class="empty-project">
+                <div class="empty-icon">+</div>
+                <h3>No project submitted</h3>
+                <p>Submit your first startup/project to display it here.</p>
+
+                <a class="secondary-button" href="{{ url_for('project') }}">
+                    Submit Project
+                </a>
+            </div>
+
+        {% endif %}
+
+    </aside>
+
+    <section class="panel market-panel">
+
+        <div class="panel-heading">
+            <div>
+                <h2>Market Analysis</h2>
+                <p>Market size and growth indicators</p>
+            </div>
+
+            <span class="live-indicator">
+                <span></span> Market Data
+            </span>
+        </div>
+
+        <div class="metric-cards">
+
+            <div class="metric-card">
+                <span>TAM</span>
+                <strong>${{ summary.tam }}B</strong>
+                <small class="positive">↗ +8.2%</small>
+            </div>
+
+            <div class="metric-card">
+                <span>SAM</span>
+                <strong>${{ summary.sam }}M</strong>
+                <small class="positive">↗ +5.5%</small>
+            </div>
+
+            <div class="metric-card">
+                <span>SOM</span>
+                <strong>${{ summary.som }}M</strong>
+                <small class="negative">↘ -2.1%</small>
+            </div>
+
+        </div>
+
+        <div class="chart-card">
+
+            <div class="chart-title-row">
+                <div>
+                    <h3>Market Trends (2020–2026)</h3>
+                    <p>Estimated market size trend</p>
+                </div>
+
+                <span class="chart-growth">
+                    +{{ summary.market_growth }}%
+                </span>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="marketChart"></canvas>
+            </div>
+
+        </div>
+
+    </section>
+
+    <aside class="panel competitor-panel">
+
+        <div class="panel-heading">
+            <div>
+                <h2>Competitor Landscape</h2>
+                <p>Key market competitors</p>
+            </div>
+
+            <button class="filter-button">☰</button>
+        </div>
+
+        <div class="competitor-list">
+
+            {% for competitor in summary.competitors %}
+
+            <div class="competitor-card">
+
+                <div class="competitor-top">
+                    <strong>{{ competitor.company }}</strong>
+
+                    {% if loop.index == 1 %}
+                        <span class="tag direct">DIRECT</span>
+                    {% else %}
+                        <span class="tag indirect">INDIRECT</span>
+                    {% endif %}
+                </div>
+
+                <div class="competitor-stats">
+                    <div>
+                        <span>Market Share</span>
+                        <strong>{{ competitor.market_share }}%</strong>
+                    </div>
+
+                    <div>
+                        <span>Revenue</span>
+                        <strong>${{ competitor.revenue }}M</strong>
+                    </div>
+
+                    <div>
+                        <span>Growth</span>
+                        <strong class="growth-text">
+                            +{{ competitor.growth }}%
+                        </strong>
+                    </div>
+                </div>
+
+                <div class="progress-track">
+                    <div class="progress-value"
+                         style="width: {{ competitor.market_share }}%;">
+                    </div>
+                </div>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    </aside>
+
+</section>
+
+{% endblock %}

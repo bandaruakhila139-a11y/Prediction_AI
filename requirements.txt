@@ -1,0 +1,13 @@
+Flask==3.1.1
+psycopg2-binary==2.9.10
+streamlit
+matplotlib
+groq
+langchain
+langchain-groq
+langgraph
+pandas
+numpy
+requests
+python-dotenv
+supabase
