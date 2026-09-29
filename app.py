@@ -244,10 +244,20 @@ with st.sidebar:
     st.caption("PostgreSQL connection for storing project submissions.")
     
     pg_cfg = get_postgres_config()
-    st.markdown(f"**Host:** `{pg_cfg['host']}:{pg_cfg['port']}`")
-    st.markdown(f"**Database:** `{pg_cfg['dbname']}`")
-    st.markdown(f"**User:** `{pg_cfg['user']}`")
     
+    with st.expander("⚙️ Connection Details", expanded=False):
+        custom_host = st.text_input("Host", value=pg_cfg['host'], key="db_host_input")
+        custom_port = st.number_input("Port", value=int(pg_cfg['port']), step=1, key="db_port_input")
+        custom_db   = st.text_input("Database", value=pg_cfg['dbname'], key="db_name_input")
+        custom_user = st.text_input("User", value=pg_cfg['user'], key="db_user_input")
+    
+    is_local_host = custom_host in ["localhost", "127.0.0.1"]
+    if is_local_host:
+        st.markdown(f"**Host:** `{custom_host}:{custom_port}` *(Local)*")
+    else:
+        st.markdown(f"**Host:** `{custom_host}:{custom_port}` *(Cloud)*")
+    st.markdown(f"**Database:** `{custom_db}` | **User:** `{custom_user}`")
+
     default_pwd = pg_cfg.get("password", "")
     postgres_pwd = st.text_input(
         "PostgreSQL Password",
@@ -257,26 +267,21 @@ with st.sidebar:
         help="Password for user 'postgres' created during PostgreSQL installation."
     )
     
-    col_t1, col_t2 = st.columns([1.2, 1])
-    with col_t1:
-        if st.button("🔌 Test Connection"):
-            if not postgres_pwd:
-                st.warning("Enter password first.")
-            else:
-                ok, msg = test_postgres_connection(postgres_pwd)
-                if ok:
-                    st.success("✅ " + msg)
-                else:
-                    st.error("❌ " + msg)
-                    
-    if postgres_pwd:
-        ok, _ = test_postgres_connection(postgres_pwd)
-        if ok:
-            st.markdown('<div style="color:#00FF66;font-size:12px;font-weight:600;margin-top:6px;">● PostgreSQL Connected</div>', unsafe_allow_html=True)
+    if st.button("🔌 Test Connection"):
+        if not postgres_pwd:
+            st.warning("Enter password first.")
         else:
-            st.markdown('<div style="color:#FF0055;font-size:12px;font-weight:600;margin-top:6px;">● PostgreSQL Disconnected</div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div style="color:#FFB800;font-size:12px;font-weight:600;margin-top:6px;">● Enter password above or in .env</div>', unsafe_allow_html=True)
+            ok, msg = test_postgres_connection(
+                password=postgres_pwd, host=custom_host, port=custom_port, dbname=custom_db, user=custom_user
+            )
+            if ok:
+                st.success("✅ " + msg)
+            else:
+                st.error("❌ " + msg)
+
+    if is_local_host:
+        st.info("💡 **Streamlit Cloud Deployment:**\n\n`localhost:5432` cannot reach your home laptop from the cloud. The app will automatically save your submissions in the built-in SQLite database so everything works!")
+
     st.divider()
 
 # ─── App Header ───────────────────────────────────────────────────────────────
@@ -332,7 +337,14 @@ with tab1:
                         "budget": budget,
                         "project_description": description
                     }
-                    res = save_project(project_dict, postgres_password=postgres_pwd)
+                    res = save_project(
+                        project_dict,
+                        postgres_password=postgres_pwd,
+                        host=custom_host,
+                        port=custom_port,
+                        dbname=custom_db,
+                        user=custom_user
+                    )
                     st.session_state.current_project = project_dict
                     if res.get("source") == "postgres":
                         st.success(f"✅ Project saved to PostgreSQL database ('ml_project' table 'projects', ID #{res.get('id')})! Check the Dashboard tab.")
@@ -435,7 +447,13 @@ with tab3:
         with st.spinner("LangGraph Agent is analyzing risks and generating recommendations…"):
             project_data = st.session_state.get("current_project")
             if not project_data:
-                latest = get_latest_project(postgres_password=postgres_pwd)
+                latest = get_latest_project(
+                    postgres_password=postgres_pwd,
+                    host=custom_host,
+                    port=custom_port,
+                    dbname=custom_db,
+                    user=custom_user
+                )
                 project_data = latest if latest else {}
             risk_data    = five_risks
             swot_data    = swot
@@ -509,7 +527,13 @@ with tab4:
     st.caption("Comprehensive overview of project viability, risks, and market trends.")
     st.write("---")
 
-    active_project = st.session_state.get("current_project") or get_latest_project(postgres_password=postgres_pwd)
+    active_project = st.session_state.get("current_project") or get_latest_project(
+        postgres_password=postgres_pwd,
+        host=custom_host,
+        port=custom_port,
+        dbname=custom_db,
+        user=custom_user
+    )
     if active_project:
         with st.container(border=True):
             p_col1, p_col2, p_col3 = st.columns([1.5, 1, 1])

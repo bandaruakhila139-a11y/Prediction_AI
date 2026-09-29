@@ -8,16 +8,32 @@ load_dotenv(dotenv_path=ENV_PATH)
 
 DB_PATH = Path(__file__).resolve().parent / "projects.db"
 
-def get_postgres_config(password=None):
+def get_postgres_config(password=None, host=None, port=None, dbname=None, user=None):
+    st_secrets = {}
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets") and "postgres" in st.secrets:
+            st_secrets = dict(st.secrets["postgres"])
+        elif hasattr(st, "secrets"):
+            st_secrets = dict(st.secrets)
+    except Exception:
+        st_secrets = {}
+
+    h = host or st_secrets.get("DB_HOST") or os.environ.get("DB_HOST", "localhost")
+    p = port or st_secrets.get("DB_PORT") or os.environ.get("DB_PORT", 5432)
+    db = dbname or st_secrets.get("DB_NAME") or os.environ.get("DB_NAME", "ml_project")
+    u = user or st_secrets.get("DB_USER") or os.environ.get("DB_USER", "postgres")
+    pwd = password if password is not None else (st_secrets.get("DB_PASSWORD") or os.environ.get("DB_PASSWORD", ""))
+
     return {
-        "host": os.environ.get("DB_HOST", "localhost"),
-        "port": int(os.environ.get("DB_PORT", 5432)),
-        "dbname": os.environ.get("DB_NAME", "ml_project"),
-        "user": os.environ.get("DB_USER", "postgres"),
-        "password": password if password is not None else os.environ.get("DB_PASSWORD", "")
+        "host": str(h),
+        "port": int(p),
+        "dbname": str(db),
+        "user": str(u),
+        "password": str(pwd)
     }
 
-def test_postgres_connection(password=None):
+def test_postgres_connection(password=None, host=None, port=None, dbname=None, user=None):
     """
     Tests connection to PostgreSQL.
     Returns (True, message) if successful, (False, error_message) otherwise.
@@ -27,11 +43,10 @@ def test_postgres_connection(password=None):
     except ImportError:
         return False, "psycopg2 is not installed."
         
-    cfg = get_postgres_config(password)
+    cfg = get_postgres_config(password=password, host=host, port=port, dbname=dbname, user=user)
     if not cfg["password"]:
         return False, "PostgreSQL password not provided."
         
-    # Try connecting to target db first
     try:
         conn = psycopg2.connect(
             host=cfg["host"],
@@ -39,12 +54,20 @@ def test_postgres_connection(password=None):
             user=cfg["user"],
             password=cfg["password"],
             dbname=cfg["dbname"],
-            connect_timeout=3
+            connect_timeout=4
         )
         conn.close()
-        return True, f"Connected to PostgreSQL database '{cfg['dbname']}' successfully!"
+        return True, f"Connected to PostgreSQL database '{cfg['dbname']}' at {cfg['host']} successfully!"
     except psycopg2.OperationalError as e:
         err = str(e)
+        if "Connection refused" in err and cfg["host"] in ["localhost", "127.0.0.1"]:
+            return False, (
+                "Connection refused on localhost:5432.\n\n"
+                "📌 You are viewing this on Streamlit Cloud (predictionai.streamlit.app)! "
+                "The cloud container cannot reach 'localhost' on your personal computer.\n\n"
+                "• On Streamlit Cloud: Your app will automatically store projects in the built-in SQLite database.\n"
+                "• To use local PostgreSQL: Open http://localhost:8501 on your computer."
+            )
         if f'database "{cfg["dbname"]}" does not exist' in err:
             try:
                 conn_maint = psycopg2.connect(
@@ -53,7 +76,7 @@ def test_postgres_connection(password=None):
                     user=cfg["user"],
                     password=cfg["password"],
                     dbname="postgres",
-                    connect_timeout=3
+                    connect_timeout=4
                 )
                 conn_maint.close()
                 return True, f"Connected to PostgreSQL! ('{cfg['dbname']}' will be created automatically)."
@@ -63,12 +86,12 @@ def test_postgres_connection(password=None):
     except Exception as e:
         return False, str(e).strip()
 
-def ensure_postgres_schema(password=None):
+def ensure_postgres_schema(password=None, host=None, port=None, dbname=None, user=None):
     """
     Ensures PostgreSQL database and 'projects' table exist.
     """
     import psycopg2
-    cfg = get_postgres_config(password)
+    cfg = get_postgres_config(password=password, host=host, port=port, dbname=dbname, user=user)
     
     try:
         conn = psycopg2.connect(
@@ -77,7 +100,7 @@ def ensure_postgres_schema(password=None):
             user=cfg["user"],
             password=cfg["password"],
             dbname=cfg["dbname"],
-            connect_timeout=3
+            connect_timeout=4
         )
     except psycopg2.OperationalError as e:
         if f'database "{cfg["dbname"]}" does not exist' in str(e):
@@ -87,7 +110,7 @@ def ensure_postgres_schema(password=None):
                 user=cfg["user"],
                 password=cfg["password"],
                 dbname="postgres",
-                connect_timeout=3
+                connect_timeout=4
             )
             conn_admin.autocommit = True
             with conn_admin.cursor() as cur:
@@ -100,7 +123,7 @@ def ensure_postgres_schema(password=None):
                 user=cfg["user"],
                 password=cfg["password"],
                 dbname=cfg["dbname"],
-                connect_timeout=3
+                connect_timeout=4
             )
         else:
             raise e
@@ -121,8 +144,8 @@ def ensure_postgres_schema(password=None):
         """)
     return conn
 
-def save_project_to_postgres(project_data: dict, password=None) -> dict:
-    conn = ensure_postgres_schema(password=password)
+def save_project_to_postgres(project_data: dict, password=None, host=None, port=None, dbname=None, user=None) -> dict:
+    conn = ensure_postgres_schema(password=password, host=host, port=port, dbname=dbname, user=user)
     with conn.cursor() as cur:
         cur.execute("""
             INSERT INTO projects (startup_name, industry, business_model, target_market, budget, project_description)
@@ -140,9 +163,9 @@ def save_project_to_postgres(project_data: dict, password=None) -> dict:
     conn.close()
     return {"source": "postgres", "success": True, "id": new_id}
 
-def get_latest_project_from_postgres(password=None):
+def get_latest_project_from_postgres(password=None, host=None, port=None, dbname=None, user=None):
     try:
-        conn = ensure_postgres_schema(password=password)
+        conn = ensure_postgres_schema(password=password, host=host, port=port, dbname=dbname, user=user)
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT id, startup_name, industry, business_model, target_market, budget, project_description, created_at
@@ -236,7 +259,7 @@ def _get_latest_sqlite():
         pass
     return None
 
-def save_project(project_data: dict, postgres_password=None) -> dict:
+def save_project(project_data: dict, postgres_password=None, host=None, port=None, dbname=None, user=None) -> dict:
     """
     Primary: PostgreSQL (if password configured in .env or passed).
     Fallback: SQLite (with informative message).
@@ -244,7 +267,7 @@ def save_project(project_data: dict, postgres_password=None) -> dict:
     pwd = postgres_password or os.environ.get("DB_PASSWORD", "")
     if pwd:
         try:
-            return save_project_to_postgres(project_data, password=pwd)
+            return save_project_to_postgres(project_data, password=pwd, host=host, port=port, dbname=dbname, user=user)
         except Exception as e:
             _save_to_sqlite(project_data)
             return {"source": "postgres_error_fallback", "success": True, "error": str(e)}
@@ -269,10 +292,10 @@ def save_project(project_data: dict, postgres_password=None) -> dict:
     _save_to_sqlite(project_data)
     return {"source": "sqlite_no_postgres_pw", "success": True}
 
-def get_latest_project(postgres_password=None):
+def get_latest_project(postgres_password=None, host=None, port=None, dbname=None, user=None):
     pwd = postgres_password or os.environ.get("DB_PASSWORD", "")
     if pwd:
-        proj = get_latest_project_from_postgres(password=pwd)
+        proj = get_latest_project_from_postgres(password=pwd, host=host, port=port, dbname=dbname, user=user)
         if proj:
             return proj
             
