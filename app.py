@@ -530,3 +530,13 @@ with tab4:
             st.write("1. Finalize MVP technical requirements.")
             st.write("2. Secure initial funding round.")
             st.write("3. Establish go-to-market strategy.")
+
+    st.write("---")
+    with st.expander("📁 View Database Records (projects table)", expanded=False):
+        all_projects = get_all_projects()
+        if all_projects:
+            df_projects = pd.DataFrame(all_projects)
+            st.dataframe(df_projects, use_container_width=True, hide_index=True)
+            st.caption(f"Total projects stored: {len(all_projects)} | Database file: `projects.db`")
+        else:
+            st.info("No projects stored in database yet.")
