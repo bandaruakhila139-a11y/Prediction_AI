@@ -1,9 +1,6 @@
 import streamlit as st
 import matplotlib.pyplot as plt
-from database import (
-    get_supabase_client, save_project, get_latest_project,
-    is_supabase_configured, test_postgres_connection, get_postgres_config
-)
+from database import save_project, get_latest_project, get_all_projects
 from market_analysis import get_market_summary
 from risk_engine import calculate_risk, get_risk_status, calculate_success_probability
 from swot_analysis import generate_swot
@@ -11,7 +8,7 @@ from feasibility import calculate_feasibility
 from recommendations_agent import run_agent
 
 # ─── Page Config ──────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Prediction AI", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Prediction AI", layout="wide", initial_sidebar_state="collapsed")
 
 # ─── Premium Design System ────────────────────────────────────────────────────
 st.markdown("""
@@ -238,52 +235,6 @@ details > summary { font-size: 12.5px !important; font-weight: 500 !important; c
 </style>
 """, unsafe_allow_html=True)
 
-# ─── Sidebar: Database Settings ───────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("### 🐘 Database Settings")
-    st.caption("PostgreSQL connection for storing project submissions.")
-    
-    pg_cfg = get_postgres_config()
-    
-    with st.expander("⚙️ Connection Details", expanded=False):
-        custom_host = st.text_input("Host", value=pg_cfg['host'], key="db_host_input")
-        custom_port = st.number_input("Port", value=int(pg_cfg['port']), step=1, key="db_port_input")
-        custom_db   = st.text_input("Database", value=pg_cfg['dbname'], key="db_name_input")
-        custom_user = st.text_input("User", value=pg_cfg['user'], key="db_user_input")
-    
-    is_local_host = custom_host in ["localhost", "127.0.0.1"]
-    if is_local_host:
-        st.markdown(f"**Host:** `{custom_host}:{custom_port}` *(Local)*")
-    else:
-        st.markdown(f"**Host:** `{custom_host}:{custom_port}` *(Cloud)*")
-    st.markdown(f"**Database:** `{custom_db}` | **User:** `{custom_user}`")
-
-    default_pwd = pg_cfg.get("password", "")
-    postgres_pwd = st.text_input(
-        "PostgreSQL Password",
-        type="password",
-        value=default_pwd,
-        key="pg_password_input",
-        help="Password for user 'postgres' created during PostgreSQL installation."
-    )
-    
-    if st.button("🔌 Test Connection"):
-        if not postgres_pwd:
-            st.warning("Enter password first.")
-        else:
-            ok, msg = test_postgres_connection(
-                password=postgres_pwd, host=custom_host, port=custom_port, dbname=custom_db, user=custom_user
-            )
-            if ok:
-                st.success("✅ " + msg)
-            else:
-                st.error("❌ " + msg)
-
-    if is_local_host:
-        st.info("💡 **Streamlit Cloud Deployment:**\n\n`localhost:5432` cannot reach your home laptop from the cloud. The app will automatically save your submissions in the built-in SQLite database so everything works!")
-
-    st.divider()
-
 # ─── App Header ───────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="app-header">
@@ -337,23 +288,9 @@ with tab1:
                         "budget": budget,
                         "project_description": description
                     }
-                    res = save_project(
-                        project_dict,
-                        postgres_password=postgres_pwd,
-                        host=custom_host,
-                        port=custom_port,
-                        dbname=custom_db,
-                        user=custom_user
-                    )
+                    res = save_project(project_dict)
                     st.session_state.current_project = project_dict
-                    if res.get("source") == "postgres":
-                        st.success(f"✅ Project saved to PostgreSQL database ('ml_project' table 'projects', ID #{res.get('id')})! Check the Dashboard tab.")
-                    elif res.get("source") == "postgres_error_fallback":
-                        st.warning(f"⚠️ PostgreSQL error: {res.get('error')}. (Saved a local backup to SQLite). Check the Dashboard tab.")
-                    elif res.get("source") == "sqlite_no_postgres_pw":
-                        st.info("ℹ️ Project saved to local database (SQLite). To store in PostgreSQL, enter your password in the left sidebar or in `.env` (`DB_PASSWORD`). Check the Dashboard tab.")
-                    else:
-                        st.success("✅ Project saved! Check the Dashboard tab.")
+                    st.success("✅ Project saved successfully to database! Check the Dashboard tab.")
                 except Exception as e:
                     st.error(f"Database error: {e}")
             else:
@@ -447,13 +384,7 @@ with tab3:
         with st.spinner("LangGraph Agent is analyzing risks and generating recommendations…"):
             project_data = st.session_state.get("current_project")
             if not project_data:
-                latest = get_latest_project(
-                    postgres_password=postgres_pwd,
-                    host=custom_host,
-                    port=custom_port,
-                    dbname=custom_db,
-                    user=custom_user
-                )
+                latest = get_latest_project()
                 project_data = latest if latest else {}
             risk_data    = five_risks
             swot_data    = swot
@@ -527,13 +458,7 @@ with tab4:
     st.caption("Comprehensive overview of project viability, risks, and market trends.")
     st.write("---")
 
-    active_project = st.session_state.get("current_project") or get_latest_project(
-        postgres_password=postgres_pwd,
-        host=custom_host,
-        port=custom_port,
-        dbname=custom_db,
-        user=custom_user
-    )
+    active_project = st.session_state.get("current_project") or get_latest_project()
     if active_project:
         with st.container(border=True):
             p_col1, p_col2, p_col3 = st.columns([1.5, 1, 1])
